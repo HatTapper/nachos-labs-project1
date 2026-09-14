@@ -1,7 +1,7 @@
-# nachos-labs
+# Project One
 
-This is startup code for Nachos projects from Prof. Rangaswami's OS class. 
+Repository to document work on COP 4610 Project One with members:
 
-Students may build their projects using these sources as a starting point. 
-
-Video tutorials covering the development of these sources are available to enrolled students. 
+Aidan Myles
+Clarissa Cruz
+Cyntia Bidopia Salt
