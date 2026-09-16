@@ -33,7 +33,7 @@
 //	"initialValue" is the initial value of the semaphore.
 //----------------------------------------------------------------------
 
-Semaphore::Semaphore(const char* debugName, int initialValue)
+Semaphore::Semaphore(const char *debugName, int initialValue)
 {
     name = debugName;
     value = initialValue;
@@ -61,19 +61,19 @@ Semaphore::~Semaphore()
 //	when it is called.
 //----------------------------------------------------------------------
 
-void
-Semaphore::P()
+void Semaphore::P()
 {
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // disable interrupts
 
-    while (value == 0) { 			// semaphore not available
-	queue->Append((void *)currentThread);	// so go to sleep
-	currentThread->Sleep();
+    while (value == 0)
+    {                                         // semaphore not available
+        queue->Append((void *)currentThread); // so go to sleep
+        currentThread->Sleep();
     }
-    value--; 					// semaphore available,
-						// consume its value
+    value--; // semaphore available,
+             // consume its value
 
-    (void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+    (void)interrupt->SetLevel(oldLevel); // re-enable interrupts
 }
 
 //----------------------------------------------------------------------
@@ -84,46 +84,70 @@ Semaphore::P()
 //	are disabled when it is called.
 //----------------------------------------------------------------------
 
-void
-Semaphore::V()
+void Semaphore::V()
 {
     Thread *thread;
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     thread = (Thread *)queue->Remove();
-    if (thread != NULL)	   // make thread ready, consuming the V immediately
-	scheduler->ReadyToRun(thread);
+    if (thread != NULL) // make thread ready, consuming the V immediately
+        scheduler->ReadyToRun(thread);
     value++;
-    (void) interrupt->SetLevel(oldLevel);
+    (void)interrupt->SetLevel(oldLevel);
 }
 
 // Dummy functions -- so we can compile our later assignments
 // Note -- without a correct implementation of Condition::Wait(),
 // the test case in the network assignment won't work!
-Lock::Lock(const char* debugName) {
+Lock::Lock(const char *debugName)
+{
     name = debugName;
     free = true;
     queue = new List;
+
+#ifdef HW1_LOCKS
+    lockHolder = nullptr;
+#endif
 }
-Lock::~Lock() {
+Lock::~Lock()
+{
     delete queue;
 }
 
-void Lock::Acquire() {
-
+void Lock::Acquire()
+{
     // Disable interrupts -- similar to Semaphore P()
-
     // Check if lock is free
-
     // If yes, make the lock not free anymore
-    free = false;
-
     // Else, lock is not free -- add self to queue
     // (keep checking for free lock while)
-
     // Enable interrupts
+#ifdef HW1_LOCKS
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    // we could do an if(free) then free = false && lockHolder = currentThread,
+    // but the true branch is always ran regardless, it just matters if we
+    // need to sleep the current thread or not, so we just check if that needs
+    // to be done
+    while (!free)
+    {
+        queue->Append((void *)currentThread);
+        currentThread->Sleep();
+    }
+
+    // give ownership of the lock to the current thread
+    free = false;
+    lockHolder = currentThread;
+
+    // restore interrupts
+    interrupt->SetLevel(oldLevel);
+#else
+    // OLD CODE
+    free = false;
+#endif
 }
-void Lock::Release() {
+void Lock::Release()
+{
 
     // disable interrupts
 
@@ -131,29 +155,67 @@ void Lock::Release() {
 
     // If not, do nothing
 
-    free = true;
-
     // If yes, release the lock and wakeup 1 of the waiting threads in queue
 
     // enable interrupts
 
+#ifdef HW1_LOCKS
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    // thread must have ownership in order to release the lock
+    if (!isHeldByCurrentThread())
+    {
+        // dont forget to restore interrupts
+        interrupt->SetLevel(oldLevel);
+        return;
+    }
+
+    // pull the next thread in queue
+    Thread *thread = (Thread *)queue->Remove();
+
+    // if there is a thread waiting, schedule it to be woken up
+    if (thread != nullptr)
+    {
+        scheduler->ReadyToRun(thread);
+    }
+
+    // clear ownership of lock and restore interrupts.
+    // if there was a thread that's getting scheduled,
+    // the remaining code after the while in Lock::Acquire()
+    // will be ran, and the lock will soon be owned again
+    // by that scheduled thread
+    free = true;
+    lockHolder = nullptr;
+
+    interrupt->SetLevel(oldLevel);
+#else
+    // OLD CODE
+    free = true;
+#endif
 }
 
-bool Lock::isHeldByCurrentThread() {
-
+bool Lock::isHeldByCurrentThread()
+{
+#ifdef HW1_LOCKS
+    return lockHolder == currentThread;
+#else
+    // OLD CODE
     return true;
-
+#endif
 }
 
-Condition::Condition(const char* debugName) {
+Condition::Condition(const char *debugName)
+{
     name = debugName; // init
-    queue =  new List;
+    queue = new List;
 }
-Condition::~Condition() {
+Condition::~Condition()
+{
     delete queue;
 }
 
-void Condition::Wait(Lock* conditionLock) {
+void Condition::Wait(Lock *conditionLock)
+{
 
     // check if calling thread holds the lock
     ASSERT(conditionLock->isHeldByCurrentThread());
@@ -163,9 +225,9 @@ void Condition::Wait(Lock* conditionLock) {
     // put self in the queue of waiting threads
 
     // Re-acquire the lock
-
 }
-void Condition::Signal(Lock* conditionLock) {
+void Condition::Signal(Lock *conditionLock)
+{
 
     // check if calling thread holds the lock
     ASSERT(conditionLock->isHeldByCurrentThread());
@@ -173,9 +235,9 @@ void Condition::Signal(Lock* conditionLock) {
     // Dequeue one of the threads in the queue
 
     // If thread exists, wake it up.
-
 }
-void Condition::Broadcast(Lock* conditionLock) {
+void Condition::Broadcast(Lock *conditionLock)
+{
 
     // check if calling thread holds the lock
     ASSERT(conditionLock->isHeldByCurrentThread());
@@ -183,5 +245,4 @@ void Condition::Broadcast(Lock* conditionLock) {
     // Dequeue all threads in the queue one-by-one
 
     // Wakeup each thread
-
- }
+}
