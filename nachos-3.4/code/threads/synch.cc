@@ -111,6 +111,8 @@ Lock::Lock(const char *debugName)
 }
 Lock::~Lock()
 {
+    // same as semaphore, we assume there are no threads waiting on the queue
+    // it is not our responsibility to ensure that
     delete queue;
 }
 
@@ -220,11 +222,23 @@ void Condition::Wait(Lock *conditionLock)
     // check if calling thread holds the lock
     ASSERT(conditionLock->isHeldByCurrentThread());
 
-    // Release the lock
+// Release the lock
+// put self in the queue of waiting threads
+// Re-acquire the lock
+#ifdef HW1_CONDITIONS
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
-    // put self in the queue of waiting threads
+    conditionLock->Release();
 
-    // Re-acquire the lock
+    queue->Append((void *)currentThread);
+    currentThread->Sleep();
+
+    interrupt->SetLevel(oldLevel);
+
+    // Lock::Acquire also does interrupt toggling,
+    // so it is done after we restore the oldLevel
+    conditionLock->Acquire();
+#endif
 }
 void Condition::Signal(Lock *conditionLock)
 {
@@ -233,8 +247,20 @@ void Condition::Signal(Lock *conditionLock)
     ASSERT(conditionLock->isHeldByCurrentThread());
 
     // Dequeue one of the threads in the queue
-
     // If thread exists, wake it up.
+
+#ifdef HW1_CONDITIONS
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    // fetch the next thread and wake it if it exists
+    Thread *thread = (Thread *)queue->Remove();
+    if (thread != nullptr)
+    {
+        scheduler->ReadyToRun(thread);
+    }
+
+    interrupt->SetLevel(oldLevel);
+#endif
 }
 void Condition::Broadcast(Lock *conditionLock)
 {
@@ -243,6 +269,19 @@ void Condition::Broadcast(Lock *conditionLock)
     ASSERT(conditionLock->isHeldByCurrentThread());
 
     // Dequeue all threads in the queue one-by-one
-
     // Wakeup each thread
+
+#ifdef HW1_CONDITIONS
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    // fetch all threads in the queue until empty, scheduling
+    // them in order
+    Thread *thread;
+    while ((thread = (Thread *)queue->Remove()) != nullptr)
+    {
+        scheduler->ReadyToRun(thread);
+    }
+
+    interrupt->SetLevel(oldLevel);
+#endif
 }
