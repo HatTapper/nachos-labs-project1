@@ -59,7 +59,7 @@ extern int testnum;
 
 // External functions used by this file
 
-extern void ThreadTest(void), Copy(char *unixFile, char *nachosFile);
+extern void ThreadTest(int n), Copy(char *unixFile, char *nachosFile);
 extern void ElevatorTest(int numFloors, int numPersons);
 extern void Ping();
 extern void Print(char *file), PerformanceTest(void);
@@ -97,8 +97,10 @@ main(int argc, char **argv)
         testnum = atoi(argv[1]);
         argCount++;
         break;
+	case 'r':
+	argCount = 2;
+	break;
       default:
-        testnum = 1;
         break;
       }
     }
@@ -106,14 +108,14 @@ main(int argc, char **argv)
 #if defined(CHANGED) && defined(HW1_CONDITION)
 	Ping();
 #else
-    ThreadTest();
+   // ThreadTest(testnum);
 #endif
 
 
 #if defined(CHANGED) && defined(HW1_ELEVATOR)
 	ElevatorTest(5, 5);
 #else
-    ThreadTest();
+    ThreadTest(testnum);
 #endif
 
 
