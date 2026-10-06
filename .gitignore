@@ -1,0 +1,6 @@
+*.0
+*.d
+*.a
+*.out
+nachos
+core
