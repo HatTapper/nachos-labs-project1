@@ -65,6 +65,7 @@ extern void Ping();
 extern void Print(char *file), PerformanceTest(void);
 extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
 extern void MailTest(int networkID);
+extern void LockTest(void);
 
 //----------------------------------------------------------------------
 // main
@@ -116,6 +117,10 @@ int main(int argc, char **argv)
 	ElevatorTest(5, 5);
 #else
 	ThreadTest(testnum);
+#endif
+
+#if defined(CHANGED) && defined(HW1_LOCKS)
+	LockTest();
 #endif
 
 #endif
@@ -200,5 +205,5 @@ int main(int argc, char **argv)
 							 // to those threads by saying that the
 							 // "main" thread is finished, preventing
 							 // it from returning.
-	return (0); // Not reached...
+	return (0);				 // Not reached...
 }
