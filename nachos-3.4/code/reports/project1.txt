@@ -1,1 +1,14 @@
 Project 1 Report
+Group Members: Aidan Myles, Clarissa, Cyntia Bidopia Salt
+
+
+EXCERCISE 1
+STATUS: Completed. Passes with -q 0 to 4 with and without -rs
+
+EXPLANATION: In Excercise 1 each threaDd reads SharedVariable into 
+a local variable, prints it, yields, and then writes back the val + 1. 
+The yield happens between the read and write, however while some threads 
+write, others may have read the same old value. Each of them write the 
+same old value plus one, some increments are lost.
+
+In the runs with -q 2 and -q 4, every thread saw the same value in each round
