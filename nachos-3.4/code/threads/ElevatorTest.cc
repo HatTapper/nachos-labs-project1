@@ -3,23 +3,26 @@
 #include "synch.h"
 #include "elevator.h"
 
-void ElevatorTest(int numFloors, int numPersons) {
+void ElevatorTest(int numFloors, int numPersons)
+{
 
     // Create elevator thread
     Elevator(numFloors);
 
-    for (int i = 0 ; i < numPersons; i++) {
+    for (int i = 0; i < numPersons; i++)
+    {
         int atFloor = (Random() % numFloors) + 1; // choose a random atFloor
-        int toFloor = -1 ;
-        do {
+        int toFloor = -1;
+        do
+        {
             toFloor = (Random() % numFloors) + 1; // choose a random toFloor
-        } while (atFloor == toFloor) ;
+        } while (atFloor == toFloor);
 
         ArrivingGoingFromTo(atFloor, toFloor);
 
-        for(int j =0 ; j< 1000000; j++) {
+        for (int j = 0; j < 50; j++)
+        {
             currentThread->Yield();
         }
     }
-
 }
