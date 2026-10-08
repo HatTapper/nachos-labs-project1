@@ -41,9 +41,10 @@ SimpleThread(int which)
         mutex->P();
         val = SharedVariable;
         printf("*** thread %d sees value %d\n", which, val);
+	currentThread->Yield();
         SharedVariable = val + 1;
-        mutex->V();
         currentThread->Yield();
+	mutex->V();
 #else
         val = SharedVariable;
         printf("*** thread %d sees value %d\n", which, val);
