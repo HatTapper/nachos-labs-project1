@@ -139,7 +139,9 @@ void Lock::Acquire()
 
     // give ownership of the lock to the current thread
     free = false;
+#ifdef HW1_LOCKS
     lockHolder = currentThread;
+#endif
 
     // restore interrupts
     interrupt->SetLevel(oldLevel);
@@ -187,8 +189,9 @@ void Lock::Release()
     // will be ran, and the lock will soon be owned again
     // by that scheduled thread
     free = true;
+#ifdef HW1_LOCKS
     lockHolder = nullptr;
-
+#endif
     interrupt->SetLevel(oldLevel);
 #else
     // OLD CODE
