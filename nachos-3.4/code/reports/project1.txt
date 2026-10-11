@@ -1,1 +1,26 @@
-input text here
+Group Members: Cyntia Bidopia Salt, Clarissa Cruz, Aidan Myles
+
+EXERCISE 1
+
+In this exercise, we watched what occurred as when a multitude of threads updated the same variable without protection.
+Each of the threads reads SharedVariable into a local variable, prints it, pauses with yield, and then outputs local + 1.
+The pause with yield is a crucial part because while one of the threads is paused another thread can read the same value, so both can then update to value + 1.
+This can cause some increments to get lost. Without -rs, the threads are able to run in an organized manner in lockstep with every thread ending at 5 instead of 5n. 
+With -rs and n = 4, the final values differ between threads. 
+
+When using semaphores (-DHW1_SEMAPHORES) we used a mutex semaphore around the read, print, and write so only one thread would do a part at a time. 
+We also added a barrier so each of the threads would wait until they all finish looping. 
+After that ends, the race condition is gone so for n = 1 through 4, with and without -rs, every thread prints the same final value and all of the values increase orderly. 
+So, with semaphores, we made the shared update predictable.
+
+STATUS: We have completed this exercise fully.
+
+EXERCISE 2
+STATUS: We have completed this exercise fully.
+
+EXERCISE 3
+STATUS: We have completed this exercise fully.
+
+EXERCISE 4
+STATUS: We have completed this exercise fully.
+
