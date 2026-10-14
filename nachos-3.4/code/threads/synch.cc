@@ -104,10 +104,7 @@ Lock::Lock(const char *debugName)
     name = debugName;
     free = true;
     queue = new List;
-
-#ifdef HW1_LOCKS
     lockHolder = nullptr;
-#endif
 }
 Lock::~Lock()
 {
@@ -118,13 +115,6 @@ Lock::~Lock()
 
 void Lock::Acquire()
 {
-    // Disable interrupts -- similar to Semaphore P()
-    // Check if lock is free
-    // If yes, make the lock not free anymore
-    // Else, lock is not free -- add self to queue
-    // (keep checking for free lock while)
-    // Enable interrupts
-#if defined(CHANGED) && defined(THREADS)
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     // we could do an if(free) then free = false && lockHolder = currentThread,
@@ -139,31 +129,15 @@ void Lock::Acquire()
 
     // give ownership of the lock to the current thread
     free = false;
-#ifdef HW1_LOCKS
+
     lockHolder = currentThread;
-#endif
 
     // restore interrupts
     interrupt->SetLevel(oldLevel);
-#else
-    // OLD CODE
-    free = false;
-#endif
 }
+
 void Lock::Release()
 {
-
-    // disable interrupts
-
-    // check if thread has lock ... isHeldByCurrentThread ?
-
-    // If not, do nothing
-
-    // If yes, release the lock and wakeup 1 of the waiting threads in queue
-
-    // enable interrupts
-
-#if defined(CHANGED) && defined(THREADS)
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     // thread must have ownership in order to release the lock
@@ -189,24 +163,13 @@ void Lock::Release()
     // will be ran, and the lock will soon be owned again
     // by that scheduled thread
     free = true;
-#ifdef HW1_LOCKS
     lockHolder = nullptr;
-#endif
     interrupt->SetLevel(oldLevel);
-#else
-    // OLD CODE
-    free = true;
-#endif
 }
 
 bool Lock::isHeldByCurrentThread()
 {
-#ifdef HW1_LOCKS
     return lockHolder == currentThread;
-#else
-    // OLD CODE
-    return true;
-#endif
 }
 
 Condition::Condition(const char *debugName)
@@ -225,10 +188,6 @@ void Condition::Wait(Lock *conditionLock)
     // check if calling thread holds the lock
     ASSERT(conditionLock->isHeldByCurrentThread());
 
-// Release the lock
-// put self in the queue of waiting threads
-// Re-acquire the lock
-#if defined(CHANGED) && defined(THREADS)
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     conditionLock->Release();
@@ -241,7 +200,6 @@ void Condition::Wait(Lock *conditionLock)
     // Lock::Acquire also does interrupt toggling,
     // so it is done after we restore the oldLevel
     conditionLock->Acquire();
-#endif
 }
 void Condition::Signal(Lock *conditionLock)
 {
@@ -252,7 +210,6 @@ void Condition::Signal(Lock *conditionLock)
     // Dequeue one of the threads in the queue
     // If thread exists, wake it up.
 
-#if defined(CHANGED) && defined(THREADS)
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     // fetch the next thread and wake it if it exists
@@ -263,7 +220,6 @@ void Condition::Signal(Lock *conditionLock)
     }
 
     interrupt->SetLevel(oldLevel);
-#endif
 }
 void Condition::Broadcast(Lock *conditionLock)
 {
@@ -273,8 +229,6 @@ void Condition::Broadcast(Lock *conditionLock)
 
     // Dequeue all threads in the queue one-by-one
     // Wakeup each thread
-
-#if defined(CHANGED) && defined(THREADS)
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     // fetch all threads in the queue until empty, scheduling
@@ -286,5 +240,4 @@ void Condition::Broadcast(Lock *conditionLock)
     }
 
     interrupt->SetLevel(oldLevel);
-#endif
 }

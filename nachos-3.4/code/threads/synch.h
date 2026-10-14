@@ -83,11 +83,9 @@ private:
   const char *name; // for debugging
   // plus some other stuff you'll need to define
 
-#ifdef HW1_LOCKS
   // denotes which thread is currently holding the lock, if any
   // we need this here so the lock can keep track of ownership
   Thread *lockHolder;
-#endif
 
   List *queue; // threads waiting on lock to become free
   bool free;   // keeps track of hte state of the lock
