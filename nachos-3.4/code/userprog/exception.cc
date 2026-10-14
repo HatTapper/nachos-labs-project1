@@ -25,6 +25,7 @@
 #include "system.h"
 #include "syscall.h"
 #include "system.h"
+#include "logger.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -49,25 +50,25 @@
 //	are in machine.h.
 //----------------------------------------------------------------------
 
-
-void doExit(int status) {
+void doExit(int status)
+{
 
     int pid = 99;
 
     printf("System Call: [%d] invoked [Exit]\n", pid);
-    printf ("Process [%d] exits with [%d]\n", pid, status);
-
+    printf("Process [%d] exits with [%d]\n", pid, status);
 
     currentThread->space->pcb->exitStatus = status;
 
     // Manage PCB memory As a parent process
-    PCB* pcb = currentThread->space->pcb;
+    PCB *pcb = currentThread->space->pcb;
 
     // Delete exited children and set parent null for non-exited ones
     pcb->DeleteExitedChildrenSetParentNull();
 
     // Manage PCB memory As a child process
-    if(pcb->parent == NULL) pcbManager->DeallocatePCB(pcb);
+    if (pcb->parent == NULL)
+        pcbManager->DeallocatePCB(pcb);
 
     // Delete address space only after use is completed
     delete currentThread->space;
@@ -76,10 +77,10 @@ void doExit(int status) {
     // because currentThread marks itself to be destroyed (by a different thread)
     // and then puts itself to sleep -- thus anything after this statement will not be executed!
     currentThread->Finish();
-
 }
 
-void incrementPC() {
+void incrementPC()
+{
     int oldPCReg = machine->ReadRegister(PCReg);
 
     machine->WriteRegister(PrevPCReg, oldPCReg);
@@ -87,8 +88,8 @@ void incrementPC() {
     machine->WriteRegister(NextPCReg, oldPCReg + 8);
 }
 
-
-void childFunction(int pid) {
+void childFunction(int pid)
+{
 
     // 1. Restore the state of registers
     // currentThread->RestoreUserState()
@@ -97,10 +98,10 @@ void childFunction(int pid) {
     // currentThread->space->RestoreState()
 
     // machine->Run();
-
 }
 
-int doFork(int functionAddr) {
+int doFork(int functionAddr)
+{
 
     // 1. Check if sufficient memory exists to create new process
     // currentThread->space->GetNumPages() <= mm->GetFreePageCount()
@@ -139,12 +140,11 @@ int doFork(int functionAddr) {
     // pcreg = machine->ReadRegister(PCReg)
     // print message for child creation (pid,  pcreg, currentThread->space->GetNumPages())
 
-
     // 9. return pcb->pid;
-
 }
 
-int doExec(char* filename) {
+int doExec(char *filename)
+{
 
     // Use progtest.cc:StartProcess() as a guide
 
@@ -191,8 +191,8 @@ int doExec(char* filename) {
     return 0;
 }
 
-
-int doJoin(int pid) {
+int doJoin(int pid)
+{
 
     // 1. Check if this is a valid pid and return -1 if not
     // PCB* joinPCB = pcbManager->GetPCB(pid);
@@ -210,11 +210,10 @@ int doJoin(int pid) {
     // delete joinPCB;
 
     // 5. return status;
-
 }
 
-
-int doKill (int pid) {
+int doKill(int pid)
+{
 
     // 1. Check if the pid is valid and if not, return -1
     // PCB* joinPCB = pcbManager->GetPCB(pid);
@@ -236,57 +235,44 @@ int doKill (int pid) {
     // 5. return 0 for success!
 }
 
-
-
-void doYield() {
+void doYield()
+{
     currentThread->Yield();
 }
 
-
-
-
-
 // This implementation (discussed in one of the videos) is broken!
 // Try and figure out why.
-char* readString1(int virtAddr) {
+char *readString1(int virtAddr)
+{
 
     unsigned int pageNumber = virtAddr / 128;
     unsigned int pageOffset = virtAddr % 128;
     unsigned int frameNumber = machine->pageTable[pageNumber].physicalPage;
-    unsigned int physicalAddr = frameNumber*128 + pageOffset;
+    unsigned int physicalAddr = frameNumber * 128 + pageOffset;
 
     char *string = &(machine->mainMemory[physicalAddr]);
 
     return string;
-
 }
-
-
-
-
-
-
-
-
-
 
 // This implementation is correct!
 // perform MMU translation to access physical memory
-char* readString(int virtualAddr) {
+char *readString(int virtualAddr)
+{
     int i = 0;
-    char* str = new char[256];
+    char *str = new char[256];
     unsigned int physicalAddr = currentThread->space->Translate(virtualAddr);
 
     // Need to get one byte at a time since the string may straddle multiple pages that are not guaranteed to be contiguous in the physicalAddr space
-    bcopy(&(machine->mainMemory[physicalAddr]),&str[i],1);
-    while(str[i] != '\0' && i != 256-1)
+    bcopy(&(machine->mainMemory[physicalAddr]), &str[i], 1);
+    while (str[i] != '\0' && i != 256 - 1)
     {
         virtualAddr++;
         i++;
         physicalAddr = currentThread->space->Translate(virtualAddr);
-        bcopy(&(machine->mainMemory[physicalAddr]),&str[i],1);
+        bcopy(&(machine->mainMemory[physicalAddr]), &str[i], 1);
     }
-    if(i == 256-1 && str[i] != '\0')
+    if (i == 256 - 1 && str[i] != '\0')
     {
         str[i] = '\0';
     }
@@ -294,52 +280,119 @@ char* readString(int virtualAddr) {
     return str;
 }
 
-void doCreate(char* fileName)
+void doCreate(char *fileName)
 {
     printf("Syscall Call: [%d] invoked Create.\n", currentThread->space->pcb->pid);
     fileSystem->Create(fileName, 0);
 }
 
-void
-ExceptionHandler(ExceptionType which)
+// given a SC define, returns the stringified name
+static const char *getSyscallName(int type)
 {
-    int type = machine->ReadRegister(2);
-
-    if ((which == SyscallException) && (type == SC_Halt)) {
-	DEBUG('a', "Shutdown, initiated by user program.\n");
-   	interrupt->Halt();
-    } else  if ((which == SyscallException) && (type == SC_Exit)) {
-        // Implement Exit system call
-        doExit(machine->ReadRegister(4));
-    } else if ((which == SyscallException) && (type == SC_Fork)) {
-        int ret = doFork(machine->ReadRegister(4));
-        machine->WriteRegister(2, ret);
-        incrementPC();
-    } else if ((which == SyscallException) && (type == SC_Exec)) {
-        int virtAddr = machine->ReadRegister(4);
-        char* fileName = readString(virtAddr);
-        int ret = doExec(fileName);
-        machine->WriteRegister(2, ret);
-        incrementPC();
-    } else if ((which == SyscallException) && (type == SC_Join)) {
-        int ret = doJoin(machine->ReadRegister(4));
-        machine->WriteRegister(2, ret);
-        incrementPC();
-    } else if ((which == SyscallException) && (type == SC_Kill)) {
-        int ret = doKill(machine->ReadRegister(4));
-        machine->WriteRegister(2, ret);
-        incrementPC();
-    } else if ((which == SyscallException) && (type == SC_Yield)) {
-        doYield();
-        incrementPC();
-    } else if((which == SyscallException) && (type == SC_Create)) {
-        int virtAddr = machine->ReadRegister(4);
-        char* fileName = readString(virtAddr);
-        doCreate(fileName);
-        incrementPC();
-    } else {
-	printf("Unexpected user mode exception %d %d\n", which, type);
-	ASSERT(FALSE);
+    switch (type)
+    {
+    case SC_Halt:
+        return "Halt";
+    case SC_Create:
+        return "Create";
+    case SC_Fork:
+        return "Fork";
+    case SC_Yield:
+        return "Yield";
+    case SC_Exit:
+        return "Exit";
+    case SC_Exec:
+        return "Exec";
+    case SC_Join:
+        return "Join";
+    case SC_Kill:
+        return "Kill";
+    default:
+        return NULL;
     }
 }
 
+void ExceptionHandler(ExceptionType which)
+{
+    int type = machine->ReadRegister(2);
+
+    if (which != SyscallException)
+    {
+        printf("Unexpected user mode exception %d %d\n", which, type);
+        ASSERT(FALSE);
+        return;
+    }
+
+    const char *syscallName = getSyscallName(type);
+    if (syscallName != NULL)
+    {
+        Logger::LogSyscall(1, syscallName);
+    }
+
+    switch (type)
+    {
+    case SC_Halt:
+    {
+        DEBUG('a', "Shutdown, initiated by user program.\n");
+        interrupt->Halt();
+        break;
+    }
+
+    case SC_Exit:
+    {
+        doExit(machine->ReadRegister(4)); // does not return
+        break;
+    }
+
+    case SC_Fork:
+    {
+        machine->WriteRegister(2, doFork(machine->ReadRegister(4)));
+        incrementPC();
+        break;
+    }
+
+    case SC_Exec:
+    {
+        char *fileName = readString(machine->ReadRegister(4));
+        machine->WriteRegister(2, doExec(fileName));
+        incrementPC();
+        break;
+    }
+
+    case SC_Join:
+    {
+        machine->WriteRegister(2, doJoin(machine->ReadRegister(4)));
+        incrementPC();
+        break;
+    }
+
+    case SC_Kill:
+    {
+        machine->WriteRegister(2, doKill(machine->ReadRegister(4)));
+        incrementPC();
+        break;
+    }
+
+    case SC_Yield:
+    {
+        doYield();
+        incrementPC();
+        break;
+    }
+
+    case SC_Create:
+    {
+        char *fileName = readString(machine->ReadRegister(4));
+        doCreate(fileName);
+        incrementPC();
+        break;
+    }
+
+    default:
+    {
+        printf("Unexpected syscall %d\n", type);
+        ASSERT(FALSE);
+        break;
+    }
+    }
+}
