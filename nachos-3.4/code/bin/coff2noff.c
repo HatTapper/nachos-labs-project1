@@ -70,7 +70,7 @@ ShortToHost(unsigned short shortword) {
 
 #define ReadStruct(f,s) 	Read(f,(char *)&s,sizeof(s))
 
-extern void* malloc();
+/* extern void* malloc(); */
 char *noffFileName = NULL;
 
 /* read and check for error */
