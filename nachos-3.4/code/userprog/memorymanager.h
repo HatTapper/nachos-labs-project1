@@ -3,21 +3,22 @@
 
 #include "bitmap.h"
 
-class MemoryManager {
+class Lock;
 
-    public:
-        MemoryManager();
-        ~MemoryManager();
+class MemoryManager
+{
 
-        int AllocatePage();
-        int DeallocatePage(int which);
-        unsigned int GetFreePageCount();
+public:
+    MemoryManager();
+    ~MemoryManager();
 
-    private:
-        BitMap *bitmap;
+    int AllocatePage();            // returns frame number, -1 if none free
+    int DeallocatePage(int which); // return 0 if success, 1 if failure
+    unsigned int GetFreePageCount();
 
+private:
+    BitMap *bitmap;
+    Lock *lock;
 };
-
-
 
 #endif // MEMORY_H

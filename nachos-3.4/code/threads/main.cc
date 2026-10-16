@@ -67,6 +67,10 @@ extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
 extern void MailTest(int networkID);
 extern void LockTest(void);
 
+#if defined(USER_PROGRAM) && defined(MEMTEST)
+extern void MemoryManagerTest(void);
+#endif
+
 //----------------------------------------------------------------------
 // main
 // 	Bootstrap the operating system kernel.
@@ -88,6 +92,10 @@ int main(int argc, char **argv)
 
 	DEBUG('t', "Entering main");
 	(void)Initialize(argc, argv);
+
+#if defined(USER_PROGRAM) && defined(MEMTEST)
+	MemoryManagerTest();
+#endif
 
 #ifdef THREADS
 	for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount)
