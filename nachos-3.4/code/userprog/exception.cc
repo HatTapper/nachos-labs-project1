@@ -147,46 +147,46 @@ int doExec(char *filename)
 {
 
     // Use progtest.cc:StartProcess() as a guide
+    AddrSpace *oldSpace = currentThread->space;
 
-    // 1. Open the file and check validity
-    // OpenFile *executable = fileSystem->Open(filename);
-    // AddrSpace *space;
+    // TODO: uncomment once step 3 is done
+    // Logger::LogExec(oldSpace->pcb->pid, filename);
+    Logger::LogExec(1, filename);
 
-    // if (executable == NULL) {
-    //     printf("Unable to open file %s\n", filename);
-    //     return -1;
-    // }
+    OpenFile *executable = fileSystem->Open(filename);
+    delete[] filename;
 
-    // 2. Delete current address space but store current PCB first if using in Step 5.
-    // PCB* pcb = currentThread->space->pcb;
-    // delete currentThread->space;
+    if (executable == nullptr)
+    {
+        return -1;
+    }
 
-    // 3. Create new address space
-    // space = new AddrSpace(executable);
+    AddrSpace *space = new AddrSpace(executable);
 
-    // 4.     delete executable;			// close file
+    delete executable;
 
-    // 5. Check if Addrspace creation was successful
-    // if(space->valid != true) {
-    // printf("Could not create AddrSpace\n");
-    //     return -1;
-    // }
+    if (!space->valid)
+    {
+        DEBUG('a', "Failed to initialize AddrSpace\n");
+        delete space;
 
-    // 6. Set the PCB for the new addrspace - reused from deleted address space
-    // space->pcb = pcb;
+        return -1;
+    }
 
-    // 7. Set the addrspace for currentThread
-    // currentThread->space = space;
+    // TODO: uncomment once step 3 is done
+    // space->pcb = oldSpace->pcb;
+    // space->pcb->space = space;
+    currentThread->space = space;
+    space->InitRegisters(); // set the initial register values
+    space->RestoreState();  // load page table register
 
-    // 8. Initialize registers for new addrspace
-    //  space->InitRegisters();		// set the initial register values
+    // we delete after RestoreState() because machine->pageTable would briefly
+    // point at freed memory otherwise
+    delete oldSpace;
 
-    // 9. Initialize the page table
-    // space->RestoreState();		// load page table register
+    machine->Run();
 
-    // 10. Run the machine now that all is set up
-    // machine->Run();			// jump to the user progam
-    // ASSERT(FALSE); // Execution nevere reaches here
+    ASSERT(FALSE);
 
     return 0;
 }
@@ -354,7 +354,9 @@ void ExceptionHandler(ExceptionType which)
     case SC_Exec:
     {
         char *fileName = readString(machine->ReadRegister(4));
-        machine->WriteRegister(2, doExec(fileName));
+        int ret = doExec(fileName); // only returns on failure
+
+        machine->WriteRegister(2, ret);
         incrementPC();
         break;
     }
