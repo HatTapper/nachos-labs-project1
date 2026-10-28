@@ -150,8 +150,7 @@ int doExec(char *filename)
     AddrSpace *oldSpace = currentThread->space;
 
     // TODO: uncomment once step 3 is done
-    // Logger::LogExec(oldSpace->pcb->pid, filename);
-    Logger::LogExec(1, filename);
+    Logger::LogExec(oldSpace->pcb->pid, filename);
 
     OpenFile *executable = fileSystem->Open(filename);
     delete[] filename;
@@ -174,8 +173,7 @@ int doExec(char *filename)
     }
 
     // TODO: uncomment once step 3 is done
-    // space->pcb = oldSpace->pcb;
-    // space->pcb->space = space;
+    space->pcb = oldSpace->pcb;
     currentThread->space = space;
     space->InitRegisters(); // set the initial register values
     space->RestoreState();  // load page table register
@@ -326,7 +324,7 @@ void ExceptionHandler(ExceptionType which)
     const char *syscallName = getSyscallName(type);
     if (syscallName != NULL)
     {
-        Logger::LogSyscall(1, syscallName);
+        Logger::LogSyscall(currentThread->space->pcb->pid, syscallName);
     }
 
     switch (type)

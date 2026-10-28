@@ -1,14 +1,18 @@
 #include "pcbmanager.h"
+#include "synch.h"
 
 
-PCBManager::PCBManager(int maxProcesses) {
+PCBManager::PCBManager(int max) {
 
+    maxProcesses = max;
     bitmap = new BitMap(maxProcesses);
     pcbs = new PCB*[maxProcesses];
 
     for(int i = 0; i < maxProcesses; i++) {
         pcbs[i] = NULL;
     }
+
+	pcbManagerLock = new Lock("pcbManagerLock");
 
 }
 
@@ -17,20 +21,27 @@ PCBManager::~PCBManager() {
 
     delete bitmap;
 
-    delete pcbs;
+    delete[] pcbs;
+
+    delete pcbManagerLock;
 
 }
 
 
 PCB* PCBManager::AllocatePCB() {
 
-    // Aquire pcbManagerLock
+    // Acquire pcbManagerLock
+    pcbManagerLock->Acquire();
 
     int pid = bitmap->Find();
 
     // Release pcbManagerLock
+    pcbManagerLock->Release();
 
-    ASSERT(pid != -1);
+    if (pid == -1)
+    {
+	return NULL;
+    }
 
     pcbs[pid] = new PCB(pid);
 
@@ -42,12 +53,18 @@ PCB* PCBManager::AllocatePCB() {
 int PCBManager::DeallocatePCB(PCB* pcb) {
 
     // Check is pcb is valid -- check pcbs for pcb->pid
+    if (pcb == NULL || pcbs[pcb->pid] != pcb)
+    {
+	return -1;
+    }
 
      // Aquire pcbManagerLock
+     pcbManagerLock->Acquire();
 
     bitmap->Clear(pcb->pid);
 
     // Release pcbManagerLock
+    pcbManagerLock->Release();
 
     int pid = pcb->pid;
 

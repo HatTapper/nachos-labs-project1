@@ -5,6 +5,7 @@
 #include "pcb.h"
 
 class PCB;
+class Lock;
 
 class PCBManager {
 
@@ -19,8 +20,10 @@ class PCBManager {
     private:
         BitMap* bitmap;
         PCB** pcbs;
-        // Need a lock here
-        // Lock* pcbManagerLock;
+
+
+        int maxProcesses;
+        Lock* pcbManagerLock;
 
 };
 

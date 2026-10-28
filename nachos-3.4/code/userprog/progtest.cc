@@ -32,6 +32,9 @@ void StartProcess(char *filename)
         return;
     }
     space = new AddrSpace(executable);
+    PCB *pcb = pcbManager->AllocatePCB();
+    pcb->thread = currentThread;
+    space->pcb = pcb;
     currentThread->space = space;
 
     delete executable; // close file
