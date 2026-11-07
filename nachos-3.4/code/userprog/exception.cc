@@ -193,44 +193,61 @@ int doJoin(int pid)
 {
 
     // 1. Check if this is a valid pid and return -1 if not
-    // PCB* joinPCB = pcbManager->GetPCB(pid);
-    // if (pcb == NULL) return -1;
+    PCB* joinPCB = pcbManager->GetPCB(pid);
+    if (joinPCB == NULL) return -1;
 
     // 2. Check if pid is a child of current process
-    // PCB* pcb = currentThread->space->pcb;
-    // if (pcb != joinPCB->parent) return -1;
+    PCB* pcb = currentThread->space->pcb;
+    if (pcb != joinPCB->parent) return -1;
 
     // 3. Yield until joinPCB has not exited
-    // while(!joinPCB->hasExited) currentThread->Yield();
+    while(!joinPCB->HasExited()) currentThread->Yield();
 
     // 4. Store status and delete joinPCB
-    // int status = joinPCB->exitStatus;
-    // delete joinPCB;
+    int status = joinPCB->exitStatus;
+    pcb->RemoveChild(joinPCB);
+    pcbManager->DeallocatePCB(joinPCB);
 
-    // 5. return status;
+    // 5. return status
+    return status;
 }
 
 int doKill(int pid)
 {
 
     // 1. Check if the pid is valid and if not, return -1
-    // PCB* joinPCB = pcbManager->GetPCB(pid);
-    // if (pcb == NULL) return -1;
+    PCB* pcb = pcbManager->GetPCB(pid);
+    if (pcb == NULL || pcb->HasExited())
+    {
+	Logger::LogKill(currentThread->space->pcb->pid, pid, false);
+	return -1;
+    }
 
     // 2. IF pid is self, then just exit the process
-    // if (pcb == currentThread->space->pcb) {
-    //         doExit(0);
-    //         return 0;
-    // }
+    if (pcb == currentThread->space->pcb)
+    {
+	doExit(0);
+	return 0;
+    }
 
     // 3. Valid kill, pid exists and not self, do cleanup similar to Exit
     // However, change references from currentThread to the target thread
     // pcb->thread is the target thread
+    Thread* target = pcb->thread;
+    pcb->exitStatus = -1;
+    pcb->DeleteExitedChildrenSetParentNull();
+    if (pcb->parent == NULL) pcbManager->DeallocatePCB(pcb);
+    delete target->space;
+    target->space = NULL;
 
     // 4. Set thread to be destroyed.
-    // scheduler->RemoveThread(pcb->thread);
+    scheduler->RemoveThread(target);
+    delete target;
+
+    Logger::LogKill(currentThread->space->pcb->pid, pid, true);
 
     // 5. return 0 for success!
+    return 0;
 }
 
 void doYield()
