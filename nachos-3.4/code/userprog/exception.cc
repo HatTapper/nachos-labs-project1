@@ -52,11 +52,7 @@
 
 void doExit(int status)
 {
-
-    int pid = 99;
-
-    printf("System Call: [%d] invoked [Exit]\n", pid);
-    printf("Process [%d] exits with [%d]\n", pid, status);
+    Logger::LogExit(currentThread->space->pcb->pid, status);
 
     currentThread->space->pcb->exitStatus = status;
 
