@@ -6,26 +6,27 @@
 
 class Thread;
 class PCBManager;
-extern PCBManager* pcbManager;
+extern PCBManager *pcbManager;
 
-class PCB {
+class PCB
+{
 
-    public:
-        PCB(int id);
-        ~PCB();
-        int pid;
-        PCB* parent;
-        Thread* thread;
-        int exitStatus;
+public:
+    PCB(int id);
+    ~PCB();
+    int pid;
+    PCB *parent;
+    Thread *thread;
+    int exitStatus;
+    bool exited;
 
-        void AddChild(PCB* pcb);
-        int RemoveChild(PCB* pcb);
-        bool HasExited();
-        void DeleteExitedChildrenSetParentNull();
+    void AddChild(PCB *pcb);
+    int RemoveChild(PCB *pcb);
+    bool HasExited();
+    void DeleteExitedChildrenSetParentNull();
 
-    private:
-        List* children;
-
+private:
+    List *children;
 };
 
 #endif // PCB_H
