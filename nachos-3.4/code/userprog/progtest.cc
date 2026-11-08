@@ -14,6 +14,8 @@
 #include "addrspace.h"
 #include "synch.h"
 #include "memorymanager.h"
+#include "pcb.h"
+#include "pcbmanager.h"
 
 //----------------------------------------------------------------------
 // StartProcess
@@ -31,8 +33,29 @@ void StartProcess(char *filename)
         printf("Unable to open file %s\n", filename);
         return;
     }
+
     space = new AddrSpace(executable);
+    if (!space->valid)
+    {
+        DEBUG('a', "Failed to construct a valid AddrSpace.\n");
+
+        delete space;
+        delete executable;
+
+        return;
+    }
+
     PCB *pcb = pcbManager->AllocatePCB();
+    if (pcb == NULL)
+    {
+        DEBUG('a', "Failed to allocate a PCB.\n");
+
+        delete space;
+        delete executable;
+
+        return;
+    }
+
     pcb->thread = currentThread;
     space->pcb = pcb;
     currentThread->space = space;
