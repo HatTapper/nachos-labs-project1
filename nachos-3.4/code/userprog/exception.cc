@@ -63,7 +63,7 @@ void doExit(int status)
     // Delete exited children and set parent null for non-exited ones
     pcb->DeleteExitedChildrenSetParentNull();
 
-     pcb->excited = true;
+     pcb->exited = true;
 
     // Manage PCB memory As a child process
     if (pcb->parent == NULL)
@@ -213,7 +213,7 @@ int doJoin(int pid)
 
 int doKill(int pid)
 {
-    IntStatus oldLevel = interrupt->SetLevl(IntOff);
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     // 1. Check if the pid is valid and if not, return -1
     PCB* pcb = pcbManager->GetPCB(pid);
