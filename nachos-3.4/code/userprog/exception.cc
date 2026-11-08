@@ -52,15 +52,18 @@
 
 void doExit(int status)
 {
-    Logger::LogExit(currentThread->space->pcb->pid, status);
-
-    currentThread->space->pcb->exitStatus = status;
+    // no context switch during cleanup
+    interrupt->SetLevel(IntOff);
 
     // Manage PCB memory As a parent process
     PCB *pcb = currentThread->space->pcb;
+    Logger::LogExit(currentThread->space->pcb->pid, status);
 
+    pcb->exitStatus = status;
     // Delete exited children and set parent null for non-exited ones
     pcb->DeleteExitedChildrenSetParentNull();
+
+     pcb->excited = true;
 
     // Manage PCB memory As a child process
     if (pcb->parent == NULL)
@@ -210,6 +213,7 @@ int doJoin(int pid)
 
 int doKill(int pid)
 {
+    IntStatus oldLevel = interrupt->SetLevl(IntOff);
 
     // 1. Check if the pid is valid and if not, return -1
     PCB* pcb = pcbManager->GetPCB(pid);
@@ -232,6 +236,7 @@ int doKill(int pid)
     Thread* target = pcb->thread;
     pcb->exitStatus = -1;
     pcb->DeleteExitedChildrenSetParentNull();
+    pcb->exited = true;
     if (pcb->parent == NULL) pcbManager->DeallocatePCB(pcb);
     delete target->space;
     target->space = NULL;
@@ -243,6 +248,7 @@ int doKill(int pid)
     Logger::LogKill(currentThread->space->pcb->pid, pid, true);
 
     // 5. return 0 for success!
+    interrupt->SetLevel(oldLevel);
     return 0;
 }
 
