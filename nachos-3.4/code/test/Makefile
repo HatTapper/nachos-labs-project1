@@ -89,3 +89,15 @@ execfail.o: execfail.c
 execfail: execfail.o start.o
 	$(LD) $(LDFLAGS) start.o execfail.o -o execfail.coff
 	../bin/coff2noff execfail.coff execfail
+jointest.o: jointest.c
+	$(CC) $(CFLAGS) -c jointest.c
+jointest: jointest.o start.o
+	$(LD) $(LDFLAGS) start.o jointest.o -o jointest.coff
+	../bin/coff2noff jointest.coff jointest
+
+killself.o: killself.c
+	$(CC) $(CFLAGS) -c killself.c
+killself: killself.o start.o
+	$(LD) $(LDFLAGS) start.o killself.o -o killself.coff
+	../bin/coff2noff killself.coff killself
+
