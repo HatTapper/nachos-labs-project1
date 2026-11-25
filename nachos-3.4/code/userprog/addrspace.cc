@@ -275,6 +275,23 @@ void AddrSpace::InitRegisters()
     DEBUG('a', "Initializing stack register to %d\n", numPages * PageSize - 16);
 }
 
+int AddrSpace::PagesNeeded(OpenFile *executable)
+{
+    NoffHeader noffH;
+
+    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    if ((noffH.noffMagic != NOFFMAGIC) &&
+        (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+        SwapHeader(&noffH);
+
+    if (noffH.noffMagic != NOFFMAGIC)
+        return -1;
+
+    unsigned int size = noffH.code.size + noffH.initData.size +
+                        noffH.uninitData.size + UserStackSize;
+    return divRoundUp(size, PageSize);
+}
+
 //----------------------------------------------------------------------
 // AddrSpace::SaveState
 // 	On a context switch, save any machine state, specific

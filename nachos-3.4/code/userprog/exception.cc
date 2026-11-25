@@ -63,7 +63,7 @@ void doExit(int status)
     // Delete exited children and set parent null for non-exited ones
     pcb->DeleteExitedChildrenSetParentNull();
 
-     pcb->exited = true;
+    pcb->exited = true;
 
     // Manage PCB memory As a child process
     if (pcb->parent == NULL)
@@ -89,102 +89,106 @@ void incrementPC()
 
 void childFunction(int pid)
 {
+    currentThread->RestoreUserState();    // saved registers of the child
+    currentThread->space->RestoreState(); // child's page table
 
-    // 1. Restore the state of registers
-    // currentThread->RestoreUserState()
+    machine->Run();
 
-    // 2. Restore the page table for child
-    // currentThread->space->RestoreState()
-
-    // machine->Run();
+    // shouldn't ever run
+    ASSERT(FALSE);
 }
 
 int doFork(int functionAddr)
 {
+    AddrSpace *parentSpace = currentThread->space;
+    PCB *parentPcb = parentSpace->pcb;
 
-    // 1. Check if sufficient memory exists to create new process
-    // currentThread->space->GetNumPages() <= mm->GetFreePageCount()
-    // if check fails, return -1
+    // build the child context
+    AddrSpace *childSpace = new AddrSpace(parentSpace);
+    if (!childSpace->valid)
+    {
+        delete childSpace;
+        return -1;
+    }
 
-    // 2. SaveUserState for the parent thread
-    // currentThread->SaveUserState();
+    PCB *childPcb = pcbManager->AllocatePCB();
+    if (childPcb == NULL)
+    {
+        delete childSpace;
+        return -1;
+    }
 
-    // 3. Create a new address space for child by copying parent address space
-    // Parent: currentThread->space
-    // childAddrSpace: new AddrSpace(currentThread->space)
+    Thread *childThread = new Thread("childThread");
+    childThread->space = childSpace;
+    childSpace->pcb = childPcb;
+    childPcb->thread = childThread;
+    childPcb->parent = parentPcb;
+    parentPcb->AddChild(childPcb);
 
-    // 4. Create a new thread for the child and set its addrSpace
-    // childThread = new Thread("childThread")
-    // child->space = childAddSpace;
+    // overwrite machine registers for child
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+    currentThread->SaveUserState();
+    machine->WriteRegister(PCReg, functionAddr);
+    machine->WriteRegister(PrevPCReg, functionAddr - 4);
+    machine->WriteRegister(NextPCReg, functionAddr + 4);
+    childThread->SaveUserState();
+    currentThread->RestoreUserState();
+    interrupt->SetLevel(oldLevel);
 
-    // 5. Create a PCB for the child and connect it all up
-    // pcb: pcbManager->AllocatePCB();
-    // pcb->thread = childThread
-    // set parent for child pcb
-    // add child for parent pcb
-    // initialize pcb in childAddSpace
+    int childPid = childPcb->pid;
+    Logger::LogFork(parentPcb->pid, functionAddr, childSpace->GetNumPages());
 
-    // 6. Set up machine registers for child and save it to child thread
-    // PCReg: functionAddr
-    // PrevPCReg: functionAddr-4
-    // NextPCReg: functionAddr+4
-    // childThread->SaveUserState();
+    // let the child go
+    childThread->Fork(childFunction, 0);
 
-    // 7. Restore register state of parent user-level process
-    // currentThread->RestoreUserState()
-
-    // 8. Call thread->fork on Child
-    // childThread->Fork(childFunction, pcb->pid)
-
-    // pcreg = machine->ReadRegister(PCReg)
-    // print message for child creation (pid,  pcreg, currentThread->space->GetNumPages())
-
-    // 9. return pcb->pid;
+    return childPid;
 }
 
 int doExec(char *filename)
 {
-
-    // Use progtest.cc:StartProcess() as a guide
     AddrSpace *oldSpace = currentThread->space;
+    PCB *pcb = oldSpace->pcb;
 
-    // TODO: uncomment once step 3 is done
-    Logger::LogExec(oldSpace->pcb->pid, filename);
+    Logger::LogExec(pcb->pid, filename);
 
     OpenFile *executable = fileSystem->Open(filename);
     delete[] filename;
 
     if (executable == nullptr)
+        return -1;
+
+    // the old image is about to be freed, so we count the pages as available
+    // this way, we can take full advantage of the limited memory space
+    int needed = AddrSpace::PagesNeeded(executable);
+    if (needed == -1 ||
+        needed > (int)(mm->GetFreePageCount() + oldSpace->GetNumPages()))
     {
+        DEBUG('a', "Exec: not a valid program or not enough memory\n");
+        delete executable;
         return -1;
     }
+
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    currentThread->space = NULL;
+    delete oldSpace; // returns its frames to mm
 
     AddrSpace *space = new AddrSpace(executable);
-
     delete executable;
 
-    if (!space->valid)
-    {
-        DEBUG('a', "Failed to initialize AddrSpace\n");
-        delete space;
+    // if this ever fails, the caller is already gone
+    ASSERT(space->valid);
 
-        return -1;
-    }
-
-    // TODO: uncomment once step 3 is done
-    space->pcb = oldSpace->pcb;
+    space->pcb = pcb;
     currentThread->space = space;
-    space->InitRegisters(); // set the initial register values
-    space->RestoreState();  // load page table register
 
-    // we delete after RestoreState() because machine->pageTable would briefly
-    // point at freed memory otherwise
-    delete oldSpace;
+    interrupt->SetLevel(oldLevel);
+
+    space->InitRegisters();
+    space->RestoreState();
 
     machine->Run();
-
     ASSERT(FALSE);
-
     return 0;
 }
 
@@ -192,15 +196,18 @@ int doJoin(int pid)
 {
 
     // 1. Check if this is a valid pid and return -1 if not
-    PCB* joinPCB = pcbManager->GetPCB(pid);
-    if (joinPCB == NULL) return -1;
+    PCB *joinPCB = pcbManager->GetPCB(pid);
+    if (joinPCB == NULL)
+        return -1;
 
     // 2. Check if pid is a child of current process
-    PCB* pcb = currentThread->space->pcb;
-    if (pcb != joinPCB->parent) return -1;
+    PCB *pcb = currentThread->space->pcb;
+    if (pcb != joinPCB->parent)
+        return -1;
 
     // 3. Yield until joinPCB has not exited
-    while(!joinPCB->HasExited()) currentThread->Yield();
+    while (!joinPCB->HasExited())
+        currentThread->Yield();
 
     // 4. Store status and delete joinPCB
     int status = joinPCB->exitStatus;
@@ -216,28 +223,33 @@ int doKill(int pid)
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     // 1. Check if the pid is valid and if not, return -1
-    PCB* pcb = pcbManager->GetPCB(pid);
+    PCB *pcb = pcbManager->GetPCB(pid);
     if (pcb == NULL || pcb->HasExited())
     {
-	Logger::LogKill(currentThread->space->pcb->pid, pid, false);
-	return -1;
+        Logger::LogKill(currentThread->space->pcb->pid, pid, false);
+        interrupt->SetLevel(oldLevel);
+
+        return -1;
     }
 
     // 2. IF pid is self, then just exit the process
     if (pcb == currentThread->space->pcb)
     {
-	doExit(0);
-	return 0;
+        doExit(0);
+        interrupt->SetLevel(oldLevel);
+
+        return 0;
     }
 
     // 3. Valid kill, pid exists and not self, do cleanup similar to Exit
     // However, change references from currentThread to the target thread
     // pcb->thread is the target thread
-    Thread* target = pcb->thread;
+    Thread *target = pcb->thread;
     pcb->exitStatus = -1;
     pcb->DeleteExitedChildrenSetParentNull();
     pcb->exited = true;
-    if (pcb->parent == NULL) pcbManager->DeallocatePCB(pcb);
+    if (pcb->parent == NULL)
+        pcbManager->DeallocatePCB(pcb);
     delete target->space;
     target->space = NULL;
 

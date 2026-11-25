@@ -35,7 +35,7 @@ CPP = gcc -m32 -E
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: create exit halt shell matmult sort exectest execfail
+all: create exit halt shell matmult sort exectest execfail forktest forkreturn exit3 forkexec forkloop threeproc
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.c > strt.s
@@ -53,6 +53,42 @@ create.o: create.c
 create: create.o start.o
 	$(LD) $(LDFLAGS) start.o create.o -o create.coff
 	../bin/coff2noff create.coff create
+
+exit3.o: exit3.c
+	$(CC) $(CFLAGS) -c exit3.c
+exit3: exit3.o start.o
+	$(LD) $(LDFLAGS) start.o exit3.o -o exit3.coff
+	../bin/coff2noff exit3.coff exit3
+
+forktest.o: forktest.c
+	$(CC) $(CFLAGS) -c forktest.c
+forktest: forktest.o start.o
+	$(LD) $(LDFLAGS) start.o forktest.o -o forktest.coff
+	../bin/coff2noff forktest.coff forktest
+
+forkreturn.o: forkreturn.c
+	$(CC) $(CFLAGS) -c forkreturn.c
+forkreturn: forkreturn.o start.o
+	$(LD) $(LDFLAGS) start.o forkreturn.o -o forkreturn.coff
+	../bin/coff2noff forkreturn.coff forkreturn
+
+forkexec.o: forkexec.c
+	$(CC) $(CFLAGS) -c forkexec.c
+forkexec: forkexec.o start.o
+	$(LD) $(LDFLAGS) start.o forkexec.o -o forkexec.coff
+	../bin/coff2noff forkexec.coff forkexec
+
+forkloop.o: forkloop.c
+	$(CC) $(CFLAGS) -c forkloop.c
+forkloop: forkloop.o start.o
+	$(LD) $(LDFLAGS) start.o forkloop.o -o forkloop.coff
+	../bin/coff2noff forkloop.coff forkloop
+
+threeproc.o: threeproc.c
+	$(CC) $(CFLAGS) -c threeproc.c
+threeproc: threeproc.o start.o
+	$(LD) $(LDFLAGS) start.o threeproc.o -o threeproc.coff
+	../bin/coff2noff threeproc.coff threeproc
 
 exit.o: exit.c
 	$(CC) $(CFLAGS) -c exit.c
