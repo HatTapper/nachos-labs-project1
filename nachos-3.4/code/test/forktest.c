@@ -6,11 +6,12 @@ void child()
     Exit(7);
 }
 
-void killme()
+void yielder()
 {
-    Yield();
-    Yield();
-    Exit(9);
+    int i;
+    for (i = 0; i < 5; i++)
+        Yield();
+    Exit(5);
 }
 
 void execer()
@@ -19,37 +20,32 @@ void execer()
     Exit(1);
 }
 
-void shortchild()
-{
-    Yield();
-    Exit(1);
-}
-
 int main()
 {
     int pid;
-    int status;
-    int pids[8];
+    int pids[3];
     int n;
     int i;
 
     pid = Fork(child);
-    status = Join(pid);
+    Join(pid);
 
-    pid = Fork(killme);
+    pid = Fork(child);
     Kill(pid);
-    status = Join(pid);
+    Join(pid);
 
-    status = Join(99);
-    Kill(99);
+    pid = Fork(yielder);
+    for (i = 0; i < 5; i++)
+        Yield();
+    Join(pid);
 
     pid = Fork(execer);
-    status = Join(pid);
+    Join(pid);
 
     n = 0;
-    while (n < 8)
+    while (n < 3)
     {
-        pid = Fork(shortchild);
+        pid = Fork(child);
         if (pid == -1)
             break;
         pids[n] = pid;
