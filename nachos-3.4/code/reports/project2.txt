@@ -1,0 +1,165 @@
+COP4610 PROJECT 2 REPORT
+
+Group: Nachos Group 5
+Group Members: Aidan Myles, Clarissa Cruz, Cyntia Bidopia Salt
+
+________________________________________________________________________
+
+1. Overview
+	
+We successfully implemented to Nachos the multiple user processes sharing physical memory. Also, the programs can call Fork, Exec, Exit, Join, 
+Kill, and Yield. All of the system calls log through a shared Logger to maintain a consistent format.
+
+________________________________________________________________________
+2. Design
+
+Memory Manager (Aidan Myles):
+Hands out physical frames to processes.
+MemoryManager uses a bitmap with one bit per physical frame (32 total), and on request via AllocatePage(), it returns the first free frame number or -1 if memory is full. On DeallocatePage(n), the memory manager frees the given frame number and returns 0 on success, otherwise -1 if n is out of range or has already been freed. GetFreePageCount() returns the number of free frames.
+All three operations utilize a Lock to prevent concurrent callers from corrupting the bitmap.
+A global instance named "mm" is created in Initialize() of system.cc
+
+
+Address Space (Aidan Myles):
+Represents the processes' private view of memory
+AddrSpace uses a valid bool flag to determine if it was successfully initialized or not
+addrspace.cc constructs an AddrSpace with a file by first checking if it has enough frames to fulfill the request. If not, the valid flag 
+is set to false. If any allocations from the memory manager fail partway through, all currently allocated frames in the AddrSpace are freed and 
+valid is set to false. It zeros all of the process' frames and then loads the program's code and data into the newly allocated space.
+
+For constructing via the copy constructor AddrSpace(AddrSpace*), it first makes sure the page count is large enough to handle the copy, 
+setting valid to false otherwise. It then allocates new frames and copies all of the parent's memory into the child's memory.
+
+On destruction, all of its frames are returned to the memory manager and the page table is deleted.
+
+PCB and PCB Manager (Clarissa Cruz):
+	PCB: It holds pid, thread, parent, exit status, list of children, and exited flag.
+PCBManager: Hands out pids from a bitmap and tracks the PCBs in the given array. Then, a lock stops two processes from grabbing the same pid. 
+There is AllocatePCB() which returns NULL when all of the pids run out and there is also GetPCB() which returns NULL for bad pids.
+Startup: The first program that gets pid 0 at start.
+
+Fork(Aidan Myles): 
+Fork(func) creates a new process whose address space is a copy of the parent's. The child then begins executing at func. 
+Fork returns the child's pid to the parent or -1 on failure.
+
+First the child's address space is built with the copy constructor, then a PCB is allocated for the child. 
+Then, a kernel thread is made for the child, attaching the space and PCB, along with setting the child's parent pointer and appending it to the
+parent's child list.
+
+Disabling interrupts, the parent's user registers are saved and the program counter values are adjusted to copy them into the child's context.
+After that, the parent's old values are restored and interrupts are restored to their previous value.
+
+Finally, the kernel thread is forked and childFunction begins machine->Run().
+
+Exec(Aidan Myles):
+Exec(name) replaces the calling processes' program with the program at file name. The pid, PCB, and parent are unchanged. 
+It returns -1 if an error occurs, otherwise nothing is returned.
+
+First, it attempts to open the target file.
+
+Then, it checks AddrSpace::PagesNeeded() to see if fetching all of the frames that the program needs are available. 
+This is done so that no allocations are made until it is known that it will succeed. Notably, we consider the frames that the old process owns
+at this time to be available for use as we plan to free those frames before building the new one, so we can reasonably reuse the old image's pages.
+This improves memory efficiency greatly with the tight constraints given in Nachos.
+
+Disabling interrupts, it removes the old address space, builds the new one, and attaches the old PCB before restoring interrupts.
+
+It then runs InitRegisters(), RestoreState(), then finally Machine->Run()
+
+Join (Clarissa Cruz): 
+Validates that the pid is a child of the caller, if yes then it yields until the child exits. 
+After, it will return the pid's exit status and frees its PCB. If there is a bad pid, it returns -1.
+
+Kill (Clarissa Cruz): 
+This validates that the pid exists and has yet to exit and killing yourself is the same as Exit(0). If the pid has yet to exit,then it 
+will free the target's memory and PCB to remove it from the ready list. After this, it will print the kill message. Once killed, the process 
+exits with a -1 status. It will also return -1 if the process does not exist.
+
+Exit (Clarissa Cruz): I got it to print the real pid using the Logger. I also made Exit and Kill turn interrupts off during cleanup so no 
+process will run halfway through.
+
+Yield: calls currentThread->Yield()
+________________________________________________________________________
+
+3. Running Test
+
+From code/userprog we ran:
+make
+
+From code/test we ran (only once, to build coff2noff):
+make jointest killself forktest exectest exit3
+
+ Finally from code/userprog we ran the following:
+
+./nachos -x ../test/halt
+./nachos -x ../test/jointest
+./nachos -x ../test/killself
+./nachos -x ../test/forktest
+./nachos -x ../test/exectest
+
+halt: runs and prints the correct pid.
+Output: "System Call: 0 invoked Halt", then the machine halts. 
+
+jointest: Join(-5) and Join(50) both return -1 and Kill(50) prints the 
+message: cannot kill process 50. The program also exits with -1.
+Output: "Process 0 cannot kill process 50: doesn't exist" followed by "Process 0 exits with -1"
+
+killself: Kill(0) exits with the status 0 and the Halt does not run after this.
+Output: "System Call: 0 invoked Kill" followed by "Process 0 exits with 0". No Halt call appears afterward.
+
+	
+forktest:
+1. Fork to a child function that yields then exits with code 7, then join
+	Output: "Process 1 exits with 7" 
+
+2. The child is killed right after forking, joining and expecting a -1 return
+	Output: "Process 0 killed process 1" 
+
+
+3. The parent forks to a yielder function and both processes yield five times each. The child exits with 5, and the parent joins
+	Output: alternating Yield calls, then "Process 1 exits with 5" 
+
+4. Fork to a child function that executes a program, joining afterwards
+	Output: "Exec Program: 1 loading ../test/exit3" followed by  "Process 1 exits with 3"
+
+5. Finally, fork until -1 is returned
+Output:
+System Call: 0 invoked Fork
+the first Fork succeeds ("Process 0 Fork: start at address 0xe0 with 16 pages memory") 
+System Call: 0 invoked Fork
+the next Fork prints no "Fork: start" line because no pages are free, so it returns -1
+
+We ran into an issue with Nachos' physical memory limits, as the stack size of 1024 bytes along with the size of code 
+and data led to not having enough memory to support three concurrent processes in forktest.c (a parent plus two children). 
+Our forktest file when loaded takes a total of 16 address pages before any syscalls are run, so after a single Fork, all 32 pages are filled. 
+In order to successfully create two forked processes at once, you must reduce the stack size in addrspace.h to 320 bytes or lower, otherwise 
+Fork will fail upon attempting to fork more than one process at once.
+
+
+We submit with the default 1024 bytes.
+	
+
+
+exectest:
+It tries to Exec a file that is non-existent which then returns -1 while the program continues to run. Then it Execs exit3, 
+which loads and exits with the status 3. 
+	Output: 
+	Exec Program: 0 loading ../test/doesnotexist
+	Exec Program: 0 loading ../test/exit3
+	Process 0 exits with 3
+	
+________________________________________________________________________
+
+4. Assumptions
+A killed process' status is -1. So, if Join is executed on a killed child it returns -1.
+Pids begin at 0 since the first program is pid 0.
+When a parent exits the child still continues running.
+Fork returns -1 if there is not enough free memory to create the child, and Exec returns -1 if the file does not exist.
+
+
+________________________________________________________________________
+5.
+What Doesn't Work
+All of the tests pass. The only limitation is with memory since with the 1024 byte stack only one forked child fits alongside the 
+parent at a time (see forktest).
+
